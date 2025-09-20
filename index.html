@@ -1,1 +1,1067 @@
-hello
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Калькулятор СКФ по формуле CKD-EPI</title>
+    <meta name="theme-color" content="#3b82f6">
+    <meta name="description" content="Калькулятор расчётной скорости клубочковой фильтрации (СКФ) по формуле CKD-EPI">
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+    <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+        }
+        .container {
+            max-width: 900px;
+        }
+        .form-group label {
+            font-weight: 500;
+            color: #4b5563;
+        }
+        .form-group input, .form-group select {
+            border-color: #d1d5db;
+        }
+        .form-group input:focus, .form-group select:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.25);
+        }
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 34px;
+        }
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 34px;
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 26px;
+            width: 26px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        input:checked + .slider {
+            background-color: #2563eb;
+        }
+        input:checked + .slider:before {
+            transform: translateX(26px);
+        }
+        #historyTable th, #historyTable td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        #historyTable th {
+            background-color: #f9fafb;
+            font-weight: 600;
+            color: #1f2937;
+        }
+        .delete-btn {
+            background-color: transparent;
+            border: none;
+            cursor: pointer;
+            color: #dc2626;
+            font-weight: 600;
+            font-size: 1.5rem;
+            line-height: 1;
+            padding: 0;
+            transition: color 0.2s;
+        }
+        .delete-btn:hover {
+            color: #b91c1c;
+        }
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .modal-content {
+            background-color: white;
+            padding: 2rem;
+            border-radius: 1rem;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            max-width: 400px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
+
+    <div class="container mx-auto p-8 bg-white rounded-2xl shadow-xl flex flex-col lg:flex-row space-y-8 lg:space-y-0 lg:space-x-8">
+        
+        <!-- Main Content Section -->
+        <div class="flex-1">
+            <h1 class="text-3xl font-bold text-gray-800 mb-6 text-center lg:text-left" data-lang-key="h1Title">Калькулятор СКФ по формуле CKD-EPI</h1>
+
+            <!-- Language Switch -->
+            <div class="flex items-center justify-end mb-6">
+                <span class="mr-2 text-sm text-gray-600 font-medium" data-lang-key="langEn">АНГЛ</span>
+                <label class="switch">
+                    <input type="checkbox" id="langSwitch" checked>
+                    <span class="slider"></span>
+                </label>
+                <span class="ml-2 text-sm text-gray-600 font-medium" data-lang-key="langRu">РУС</span>
+            </div>
+            
+            <!-- Tab Buttons -->
+            <div class="flex border-b border-gray-200 mb-6">
+                <button id="calculatorTabBtn" class="py-2 px-4 text-sm font-medium focus:outline-none transition-colors duration-200" data-lang-key="calculatorTab">Калькулятор</button>
+                <button id="historyTabBtn" class="py-2 px-4 text-sm font-medium focus:outline-none transition-colors duration-200" data-lang-key="historyTab">История</button>
+                <button id="settingsTabBtn" class="py-2 px-4 text-sm font-medium focus:outline-none transition-colors duration-200" data-lang-key="settingsTab">Настройки</button>
+            </div>
+            
+            <!-- Tab Content -->
+            <div id="calculatorContent" class="space-y-6">
+                <!-- Calculator Tab -->
+                <div class="form-group">
+                    <label for="calculationDate" class="block text-sm" data-lang-key="dateLabel">Дата расчета</label>
+                    <input type="date" id="calculationDate" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200">
+                </div>
+
+                <div class="form-group flex items-center justify-between">
+                    <div class="flex-1">
+                        <label for="creatinine" id="creatinineLabel" class="block text-sm" data-lang-key="creatinineLabel_mgdl">Креатинин сыворотки (мг/дл)</label>
+                        <input type="number" id="creatinine" step="0.01" placeholder="например, 1.2" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200">
+                    </div>
+                    
+                    <div class="flex items-center ml-4">
+                        <span class="mr-2 text-sm text-gray-600 font-medium">мг/дл</span>
+                        <label class="switch">
+                            <input type="checkbox" id="unitSwitch" checked>
+                            <span class="slider"></span>
+                        </label>
+                        <span class="ml-2 text-sm text-gray-600 font-medium">мкмоль/л</span>
+                    </div>
+                </div>
+
+                <div>
+                    <button id="calculateBtn" class="w-full bg-blue-600 text-white py-3 rounded-lg font-bold text-lg shadow-md hover:bg-blue-700 transition-colors duration-200" data-lang-key="calculateBtn">Рассчитать СКФ</button>
+                </div>
+
+                <div id="results" class="bg-gray-50 p-6 rounded-lg shadow-inner text-center hidden">
+                    <p class="text-sm font-medium text-gray-500" data-lang-key="egfrLabel">Расчетная СКФ</p>
+                    <p id="egfrValue" class="text-5xl font-extrabold text-blue-600 mt-1">--</p>
+                    <p class="text-sm font-medium text-gray-500" data-lang-key="egfrUnits">мл/мин/1.73 $м^2$</p>
+                </div>
+
+                <div id="message-box" class="mt-4 p-4 rounded-lg text-sm text-center font-medium hidden"></div>
+            </div>
+
+            <div id="historyContent" class="space-y-6 hidden">
+                <!-- History Tab -->
+                <h2 class="text-xl font-bold text-gray-800" data-lang-key="historyTitle">История расчетов</h2>
+                <div id="import-message-box" class="mt-4 p-4 rounded-lg text-sm text-center font-medium hidden bg-green-100 text-green-700"></div>
+                <div class="overflow-x-auto rounded-lg shadow-inner">
+                    <table id="historyTable" class="min-w-full bg-white">
+                        <thead>
+                            <tr>
+                                <th class="py-3 px-6 text-sm font-medium text-gray-500 uppercase tracking-wider" data-lang-key="historyDateHeader">Дата</th>
+                                <th class="py-3 px-6 text-sm font-medium text-gray-500 uppercase tracking-wider" data-lang-key="historyEgfrHeader">СКФ</th>
+                                <th class="py-3 px-6 text-sm font-medium text-gray-500 uppercase tracking-wider" data-lang-key="creatinineLabel_umoll">Креатинин</th>
+                                <th class="py-3 px-6"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="historyTableBody">
+                            <!-- History will be populated here by JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div class="flex space-x-4 mt-6">
+                    <button id="exportBtn" class="flex-1 bg-gray-200 text-gray-800 py-2 rounded-lg font-semibold hover:bg-gray-300 transition-colors duration-200" data-lang-key="exportBtn">Экспорт данных</button>
+                    <label class="flex-1 bg-gray-200 text-gray-800 py-2 rounded-lg font-semibold cursor-pointer hover:bg-gray-300 transition-colors duration-200 flex items-center justify-center">
+                        <span data-lang-key="importBtn">Импорт данных</span>
+                        <input type="file" id="importFile" accept=".json" class="hidden">
+                    </label>
+                </div>
+            </div>
+
+            <div id="settingsContent" class="space-y-6 hidden">
+                <!-- Settings Tab -->
+                <div class="form-group">
+                    <label for="dob" class="block text-sm" data-lang-key="dobLabel">Дата рождения</label>
+                    <input type="date" id="dob" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200">
+                </div>
+                
+                <div class="form-group">
+                    <label for="sex" class="block text-sm" data-lang-key="sexLabel">Пол</label>
+                    <select id="sex" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200">
+                        <option value="female" data-lang-key="femaleOption">Женский</option>
+                        <option value="male" data-lang-key="maleOption">Мужской</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="race" class="block text-sm" data-lang-key="raceLabel">Раса</label>
+                    <select id="race" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200">
+                        <option value="non-black" data-lang-key="nonBlackOption">Не-черная</option>
+                        <option value="black" data-lang-key="blackOption">Черная</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Chart Section -->
+        <div id="chartSection" class="flex-1 flex flex-col items-center justify-center">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4 text-center" data-lang-key="chartTitle">График истории СКФ</h2>
+            
+            <div id="chartContainer" class="w-full h-[500px]">
+                <canvas id="egfrChart"></canvas>
+            </div>
+            
+            <!-- CKD Stages Legend -->
+            <div id="egfrLegend" class="mt-6 w-full max-w-lg">
+                <h3 class="text-lg font-bold text-gray-800 text-center mb-4" data-lang-key="legendTitle">Легенда стадий ХБП</h3>
+                <div class="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm font-medium">
+                    <div class="flex items-center space-x-2">
+                        <div class="w-4 h-4 rounded-full bg-[#10b981]"></div>
+                        <span data-lang-key="ckdStage1">ХБП стадия 1 (>=90)</span>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <div class="w-4 h-4 rounded-full bg-[#22c55e]"></div>
+                        <span data-lang-key="ckdStage2">ХБП стадия 2 (60-89)</span>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <div class="w-4 h-4 rounded-full bg-[#eab308]"></div>
+                        <span data-lang-key="ckdStage3a">ХБП стадия 3a (45-59)</span>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <div class="w-4 h-4 rounded-full bg-[#f59e0b]"></div>
+                        <span data-lang-key="ckdStage3b">ХБП стадия 3b (30-44)</span>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <div class="w-4 h-4 rounded-full bg-[#f97316]"></div>
+                        <span data-lang-key="ckdStage4">ХБП стадия 4 (15-29)</span>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <div class="w-4 h-4 rounded-full bg-[#ef4444]"></div>
+                        <span data-lang-key="ckdStage5">ХБП стадия 5 (<15)</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Disclaimer -->
+            <p id="disclaimer" class="mt-4 text-sm text-gray-500 text-center max-w-lg" data-lang-key="disclaimerText"></p>
+        </div>
+    </div>
+
+    <!-- Confirmation Modal -->
+    <div id="confirmationModal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h3 class="text-xl font-bold text-gray-800 mb-4" data-lang-key="confirmTitle">Подтвердите удаление</h3>
+            <p class="text-gray-600 mb-6" data-lang-key="confirmMessage">Вы уверены, что хотите удалить этот расчет из своей истории?</p>
+            <div class="flex justify-center space-x-4">
+                <button id="confirmDeleteBtn" class="bg-red-500 text-white py-2 px-6 rounded-lg font-semibold hover:bg-red-600 transition-colors duration-200" data-lang-key="confirmBtn">Подтвердить</button>
+                <button id="cancelDeleteBtn" class="bg-gray-300 text-gray-800 py-2 px-6 rounded-lg font-semibold hover:bg-gray-400 transition-colors duration-200" data-lang-key="cancelBtn">Отмена</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Import Warning Modal -->
+    <div id="importWarningModal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h3 class="text-xl font-bold text-gray-800 mb-4" data-lang-key="importWarningTitle">Предупреждение</h3>
+            <p class="text-gray-600 mb-6" data-lang-key="importWarningMessage">Вы уверены, что хотите импортировать данные? Это действие **полностью очистит** текущую историю и заменит их данными из файла.</p>
+            <div class="flex justify-center space-x-4">
+                <button id="confirmImportBtn" class="bg-red-500 text-white py-2 px-6 rounded-lg font-semibold hover:bg-red-600 transition-colors duration-200" data-lang-key="confirmImportBtn">Подтвердить</button>
+                <button id="cancelImportBtn" class="bg-gray-300 text-gray-800 py-2 px-6 rounded-lg font-semibold hover:bg-gray-400 transition-colors duration-200" data-lang-key="cancelBtn">Отмена</button>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Регистрация Service Worker для PWA
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js')
+                    .then(registration => {
+                        console.log('SW registered: ', registration);
+                    })
+                    .catch(registrationError => {
+                        console.log('SW registration failed: ', registrationError);
+                    });
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+
+            const dobInput = document.getElementById('dob');
+            const sexSelect = document.getElementById('sex');
+            const raceSelect = document.getElementById('race');
+            const creatinineInput = document.getElementById('creatinine');
+            const unitSwitch = document.getElementById('unitSwitch');
+            const creatinineLabel = document.getElementById('creatinineLabel');
+            const calculateBtn = document.getElementById('calculateBtn');
+            const resultsDiv = document.getElementById('results');
+            const egfrValueSpan = document.getElementById('egfrValue');
+            const messageBox = document.getElementById('message-box');
+            const importMessageBox = document.getElementById('import-message-box');
+            const calculationDateInput = document.getElementById('calculationDate');
+            const langSwitch = document.getElementById('langSwitch');
+            const calculatorTabBtn = document.getElementById('calculatorTabBtn');
+            const settingsTabBtn = document.getElementById('settingsTabBtn');
+            const historyTabBtn = document.getElementById('historyTabBtn');
+            const calculatorContent = document.getElementById('calculatorContent');
+            const settingsContent = document.getElementById('settingsContent');
+            const historyContent = document.getElementById('historyContent');
+            const historyTableBody = document.getElementById('historyTableBody');
+            const disclaimerText = document.getElementById('disclaimer');
+            const chartSection = document.getElementById('chartSection');
+
+            const confirmationModal = document.getElementById('confirmationModal');
+            const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
+            const cancelDeleteBtn = document.getElementById('cancelDeleteBtn');
+
+            const egfrLegend = document.getElementById('egfrLegend');
+            
+            const ctx = document.getElementById('egfrChart').getContext('2d');
+            
+            const exportBtn = document.getElementById('exportBtn');
+            const importFile = document.getElementById('importFile');
+            const importWarningModal = document.getElementById('importWarningModal');
+            const confirmImportBtn = document.getElementById('confirmImportBtn');
+            const cancelImportBtn = document.getElementById('cancelImportBtn');
+
+            let itemToDeleteIndex = -1;
+            let fileToImport = null;
+
+            const translations = {
+                en: {
+                    h1Title: 'CKD-EPI eGFR Calculator',
+                    langEn: 'EN',
+                    langRu: 'RU',
+                    calculatorTab: 'Calculator',
+                    historyTab: 'History',
+                    settingsTab: 'Settings',
+                    dateLabel: 'Date of Calculation',
+                    dobLabel: 'Date of Birth',
+                    sexLabel: 'Sex',
+                    femaleOption: 'Female',
+                    maleOption: 'Male',
+                    raceLabel: 'Race',
+                    nonBlackOption: 'Non-Black',
+                    blackOption: 'Black',
+                    creatinineLabel_mgdl: 'Serum Creatinine (mg/dL)',
+                    creatinineLabel_umoll: 'Serum Creatinine (µmol/L)',
+                    calculateBtn: 'Calculate eGFR',
+                    egfrLabel: 'Estimated GFR',
+                    egfrUnits: 'mL/min/1.73 $м^2$',
+                    chartTitle: 'eGFR History Chart',
+                    chartXLabel: 'Date of Calculation',
+                    chartYLabel: 'eGFR (mL/min/1.73 $м^2$)',
+                    tooltipEgfr: 'eGFR:',
+                    tooltipDate: 'Date:',
+                    tooltipAge: 'Age:',
+                    tooltipCreatinine: 'Creatinine:',
+                    historyTitle: 'Calculation History',
+                    historyDateHeader: 'Date',
+                    historyEgfrHeader: 'eGFR',
+                    errorMsg: 'Please enter a valid date of birth, calculation date, and serum creatinine value.',
+                    ageTooLowMsg: 'The calculator is for individuals aged 18 and older. Please enter a valid date of birth.',
+                    historicalDataLabel: 'Historical Data',
+                    extrapolatedDataLabel: 'Expected Decline',
+                    legendTitle: 'CKD Stages Legend',
+                    ckdStage1: 'CKD Stage 1 (>=90)',
+                    ckdStage2: 'CKD Stage 2 (60-89)',
+                    ckdStage3a: 'CKD Stage 3a (45-59)',
+                    ckdStage3b: 'CKD Stage 3b (30-44)',
+                    ckdStage4: 'CKD Stage 4 (15-29)',
+                    ckdStage5: 'CKD Stage 5 (<15)',
+                    disclaimerText: 'The "Expected Decline" is a simplified mathematical projection based on the provided historical data and should not be used for medical diagnosis or treatment.',
+                    confirmTitle: 'Confirm Deletion',
+                    confirmMessage: 'Are you sure you want to delete this calculation from your history?',
+                    confirmBtn: 'Confirm',
+                    cancelBtn: 'Cancel',
+                    exportBtn: 'Export Data',
+                    importBtn: 'Import Data',
+                    importWarningTitle: 'Warning',
+                    importWarningMessage: 'Are you sure you want to import data? This action will **completely clear** the current history and settings and replace them with the data from the file.',
+                    confirmImportBtn: 'Confirm',
+                    cancelImportBtn: 'Отмена',
+                    noHistoryData: 'No history data.',
+                    importSuccess: 'Data imported successfully.',
+                    importError: 'Error importing data: Invalid file format.',
+                },
+                ru: {
+                    h1Title: 'Калькулятор СКФ по формуле CKD-EPI',
+                    langEn: 'АНГЛ',
+                    langRu: 'РУС',
+                    calculatorTab: 'Калькулятор',
+                    historyTab: 'История',
+                    settingsTab: 'Настройки',
+                    dateLabel: 'Дата расчета',
+                    dobLabel: 'Дата рождения',
+                    sexLabel: 'Пол',
+                    femaleOption: 'Женский',
+                    maleOption: 'Мужской',
+                    raceLabel: 'Раса',
+                    nonBlackOption: 'Не-черная',
+                    blackOption: 'Черная',
+                    creatinineLabel_mgdl: 'Креатинин сыворотки (мг/дл)',
+                    creatinineLabel_umoll: 'Креатинин сыворотки (мкмоль/л)',
+                    calculateBtn: 'Рассчитать СКФ',
+                    egfrLabel: 'Расчетная СКФ',
+                    egfrUnits: 'мл/мин/1.73 $м^2$',
+                    chartTitle: 'График истории СКФ',
+                    chartXLabel: 'Дата расчета',
+                    chartYLabel: 'СКФ (мл/мин/1.73 $м^2$)',
+                    tooltipEgfr: 'СКФ:',
+                    tooltipDate: 'Дата:',
+                    tooltipAge: 'Возраст:',
+                    tooltipCreatinine: 'Креатинин:',
+                    historyTitle: 'История расчетов',
+                    historyDateHeader: 'Дата',
+                    historyEgfrHeader: 'СКФ',
+                    errorMsg: 'Пожалуйста, введите действительную дату рождения, дату расчета и значение креатинина сыворотки.',
+                    ageTooLowMsg: 'Калькулятор предназначен для лиц 18 лет и старше. Пожалуйста, введите правильную дату рождения.',
+                    historicalDataLabel: 'Исторические данные',
+                    extrapolatedDataLabel: 'Ожидаемое снижение',
+                    legendTitle: 'Легенда стадий ХБП',
+                    ckdStage1: 'ХБП стадия 1 (>=90)',
+                    ckdStage2: 'ХБП стадия 2 (60-89)',
+                    ckdStage3a: 'ХБП стадия 3a (45-59)',
+                    ckdStage3b: 'ХБП стадия 3b (30-44)',
+                    ckdStage4: 'ХБП стадия 4 (15-29)',
+                    ckdStage5: 'ХБП стадия 5 (<15)',
+                    disclaimerText: '«Ожидаемое снижение» — это упрощенная математическая проекция, основанная на предоставленных исторических данных, и не должна использоваться для медицинской диагностики или лечения.',
+                    confirmTitle: 'Подтвердите удаление',
+                    confirmMessage: 'Вы уверены, что хотите удалить этот расчет из своей истории?',
+                    confirmBtn: 'Подтвердить',
+                    cancelBtn: 'Отмена',
+                    exportBtn: 'Экспорт данных',
+                    importBtn: 'Импорт данных',
+                    importWarningTitle: 'Предупреждение',
+                    importWarningMessage: 'Вы уверены, что хотите импортировать данные? Это действие **полностью очистит** текущую историю и заменит их данными из файла.',
+                    confirmImportBtn: 'Подтвердить',
+                    cancelImportBtn: 'Отмена',
+                    noHistoryData: 'Нет данных в истории.',
+                    importSuccess: 'Данные успешно импортированы.',
+                    importError: 'Ошибка при импорте: Неверный формат файла.',
+                }
+            };
+
+            let history = [];
+
+            const today = new Date();
+            const year = today.getFullYear();
+            const month = String(today.getMonth() + 1).padStart(2, '0');
+            const day = String(today.getDate()).padStart(2, '0');
+            calculationDateInput.value = `${year}-${month}-${day}`;
+            
+            const CONVERSION_FACTOR = 88.4;
+            let currentUnit = 'µmol/L';
+
+            function calculateAge(dob, calcDate) {
+                const dobDate = new Date(dob);
+                const calcDateObj = new Date(calcDate);
+                const diffMs = calcDateObj - dobDate;
+                const ageInYears = diffMs / (1000 * 60 * 60 * 24 * 365.25);
+                return ageInYears;
+            }
+            
+            function calculateEGFRFromCreatinine(creatinine_mgdl, age, sex, race) {
+                let k, alpha, raceFactor;
+
+                if (sex === 'female') {
+                    k = 0.7;
+                    alpha = creatinine_mgdl <= k ? -0.241 : -1.2;
+                } else {
+                    k = 0.9;
+                    alpha = creatinine_mgdl <= k ? -0.302 : -1.2;
+                }
+                
+                raceFactor = race === 'black' ? 1.012 : 1;
+
+                return 142 * Math.pow(creatinine_mgdl / k, alpha) * Math.pow(0.9938, age) * raceFactor;
+            }
+
+            function updateMessageBox(message, type) {
+                messageBox.textContent = message;
+                messageBox.className = 'mt-4 p-4 rounded-lg text-sm text-center font-medium';
+                if (type === 'error') {
+                    messageBox.classList.add('bg-red-100', 'text-red-700');
+                } else if (type === 'success') {
+                    messageBox.classList.add('bg-green-100', 'text-green-700');
+                } else {
+                    messageBox.classList.add('bg-blue-100', 'text-blue-700');
+                }
+                messageBox.classList.remove('hidden');
+            }
+            
+            function updateImportMessageBox(message, type) {
+                importMessageBox.textContent = message;
+                if (type === 'success') {
+                    importMessageBox.classList.remove('hidden', 'bg-red-100', 'text-red-700');
+                    importMessageBox.classList.add('bg-green-100', 'text-green-700');
+                } else if (type === 'error') {
+                     importMessageBox.classList.remove('hidden', 'bg-green-100', 'text-green-700');
+                     importMessageBox.classList.add('bg-red-100', 'text-red-700');
+                }
+            }
+
+            function clearMessageBox() {
+                messageBox.classList.add('hidden');
+            }
+            
+            function clearImportMessageBox() {
+                importMessageBox.classList.add('hidden');
+            }
+
+            function updateLanguage(lang) {
+                const elements = document.querySelectorAll('[data-lang-key]');
+                elements.forEach(element => {
+                    const key = element.getAttribute('data-lang-key');
+                    if (translations[lang][key]) {
+                        element.textContent = translations[lang][key];
+                    }
+                });
+                
+                if (disclaimerText) {
+                    disclaimerText.textContent = translations[lang].disclaimerText;
+                }
+                
+                if (creatinineLabel) {
+                    creatinineLabel.textContent = translations[lang][`creatinineLabel_${currentUnit === 'mg/dL' ? 'mgdl' : 'umoll'}`];
+                }
+
+                updateChart();
+                updateHistoryTable();
+            }
+
+            function showTab(tabId) {
+                calculatorContent.classList.add('hidden');
+                settingsContent.classList.add('hidden');
+                historyContent.classList.add('hidden');
+                calculatorTabBtn.classList.remove('border-blue-500', 'text-blue-600', 'border-b-2');
+                settingsTabBtn.classList.remove('border-blue-500', 'text-blue-600', 'border-b-2');
+                historyTabBtn.classList.remove('border-blue-500', 'text-blue-600', 'border-b-2');
+                
+                clearImportMessageBox();
+
+                if (tabId === 'calculator') {
+                    calculatorContent.classList.remove('hidden');
+                    calculatorTabBtn.classList.add('border-b-2', 'border-blue-500', 'text-blue-600');
+                } else if (tabId === 'settings') {
+                    settingsContent.classList.remove('hidden');
+                    settingsTabBtn.classList.add('border-b-2', 'border-blue-500', 'text-blue-600');
+                } else {
+                    historyContent.classList.remove('hidden');
+                    historyTabBtn.classList.add('border-b-2', 'border-blue-500', 'text-blue-600');
+                    updateHistoryTable();
+                }
+            }
+            
+            function showConfirmationModal(index) {
+                itemToDeleteIndex = index;
+                confirmationModal.classList.remove('hidden');
+            }
+
+            function hideConfirmationModal() {
+                itemToDeleteIndex = -1;
+                confirmationModal.classList.add('hidden');
+            }
+            
+            function deleteHistoryEntry(index) {
+                history.splice(index, 1);
+                saveToLocalStorage();
+                updateHistoryTable();
+                updateChart();
+                hideConfirmationModal();
+            }
+
+            confirmDeleteBtn.addEventListener('click', () => {
+                if (itemToDeleteIndex !== -1) {
+                    deleteHistoryEntry(itemToDeleteIndex);
+                }
+            });
+
+            cancelDeleteBtn.addEventListener('click', hideConfirmationModal);
+
+            function updateHistoryTable() {
+                const lang = langSwitch.checked ? 'ru' : 'en';
+                historyTableBody.innerHTML = '';
+                if (!Array.isArray(history) || history.length === 0) {
+                    const noDataRow = document.createElement('tr');
+                    noDataRow.innerHTML = `<td colspan="4" class="text-center text-gray-500 py-4">${translations[lang].noHistoryData}</td>`;
+                    historyTableBody.appendChild(noDataRow);
+                    return;
+                }
+                history.sort((a, b) => new Date(a.date) - new Date(b.date));
+                history.forEach((entry, index) => {
+                    const row = document.createElement('tr');
+                    const dateCell = document.createElement('td');
+                    const egfrCell = document.createElement('td');
+                    const creatinineCell = document.createElement('td');
+                    const actionCell = document.createElement('td');
+                    
+                    dateCell.textContent = entry.date;
+                    egfrCell.textContent = entry.egfr ? entry.egfr.toFixed(2) : '-';
+                    creatinineCell.textContent = entry.creatinine ? `${entry.creatinine.toFixed(2)} ${entry.units}` : '-';
+
+                    const deleteBtn = document.createElement('button');
+                    deleteBtn.className = 'delete-btn';
+                    deleteBtn.textContent = '–';
+                    deleteBtn.title = 'Удалить эту запись';
+                    deleteBtn.addEventListener('click', () => showConfirmationModal(index));
+
+                    actionCell.appendChild(deleteBtn);
+                    actionCell.classList.add('text-center');
+
+                    row.appendChild(dateCell);
+                    row.appendChild(egfrCell);
+                    row.appendChild(creatinineCell);
+                    row.appendChild(actionCell);
+                    historyTableBody.appendChild(row);
+                });
+            }
+            
+            // Новая функция: Вычисление линейной регрессии
+            function linearRegression(data) {
+                if (data.length < 2) return { slope: 0, intercept: data.length > 0 ? data[0].y : 0, referenceDate: new Date() };
+                
+                const n = data.length;
+                let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
+                
+                // Используем первую дату как точку отсчета для "x=0"
+                const referenceDate = new Date(data[0].x);
+
+                for (let i = 0; i < n; i++) {
+                    // Переводим дату в количество лет с начала периода для оси X
+                    const x = (data[i].x - referenceDate) / (1000 * 60 * 60 * 24 * 365.25);
+                    const y = data[i].y;
+                    sumX += x;
+                    sumY += y;
+                    sumXY += x * y;
+                    sumX2 += x * x;
+                }
+                
+                const denominator = (n * sumX2 - sumX * sumX);
+                const slope = denominator === 0 ? 0 : (n * sumXY - sumX * sumY) / denominator;
+                const intercept = (sumY / n) - (slope * sumX / n);
+                
+                return { slope, intercept, referenceDate };
+            }
+
+            const egfrZonesPlugin = {
+                id: 'egfrZonesPlugin',
+                beforeDraw: (chart) => {
+                    const { ctx, chartArea: { left, right, top, bottom }, scales: { y } } = chart;
+                    
+                    if (y && y.axis === 'y') {
+                        const drawRect = (color, startValue, endValue) => {
+                            const yStart = y.getPixelForValue(endValue);
+                            const yEnd = y.getPixelForValue(startValue);
+                            ctx.fillStyle = color;
+                            ctx.fillRect(left, yStart, right - left, yEnd - yStart);
+                        };
+                        
+                        drawRect('rgba(16, 185, 129, 0.2)', 90, 150);
+                        drawRect('rgba(34, 197, 94, 0.2)', 60, 89);
+                        drawRect('rgba(234, 179, 8, 0.2)', 45, 59);
+                        drawRect('rgba(245, 158, 11, 0.2)', 30, 44);
+                        drawRect('rgba(249, 115, 22, 0.2)', 15, 29);
+                        drawRect('rgba(239, 68, 68, 0.2)', 0, 14);
+                    }
+                }
+            };
+            
+            const egfrLinesPlugin = {
+                id: 'egfrLinesPlugin',
+                afterDraw: (chart) => {
+                    const { ctx, chartArea: { left, right }, scales: { y } = {} } = chart;
+                    if (!y) return;
+                    const drawLine = (value, color) => {
+                        const yPixel = y.getPixelForValue(value);
+                        if (yPixel < y.bottom && yPixel > y.top) {
+                            ctx.save();
+                            ctx.strokeStyle = color;
+                            ctx.lineWidth = 2;
+                            ctx.setLineDash([5, 5]);
+                            ctx.beginPath();
+                            ctx.moveTo(left, yPixel);
+                            ctx.lineTo(right, yPixel);
+                            ctx.stroke();
+                            ctx.restore();
+                        }
+                    };
+                    
+                    drawLine(30, 'orange');
+                    drawLine(15, 'red');
+                    drawLine(5, 'darkred');
+                }
+            };
+
+            function updateChart() {
+                const canvas = document.getElementById('egfrChart');
+                const lang = langSwitch.checked ? 'ru' : 'en';
+
+                const historicalData = history.filter(entry => entry.egfr !== null && entry.egfr !== undefined).map(entry => ({ 
+                    x: new Date(entry.date), 
+                    y: entry.egfr,
+                    creatinine: entry.creatinine,
+                    units: entry.units,
+                    type: 'historical'
+                }));
+
+                if (historicalData.length === 0) {
+                    chartSection.classList.add('hidden');
+                    if (canvas.chart) {
+                        canvas.chart.destroy();
+                    }
+                    return;
+                } else {
+                    chartSection.classList.remove('hidden');
+                }
+
+                if (canvas.chart) {
+                    canvas.chart.destroy();
+                }
+
+                historicalData.sort((a, b) => a.x - b.x);
+
+                const datasets = [
+                    {
+                        label: translations[lang].historicalDataLabel,
+                        data: historicalData,
+                        borderColor: 'rgb(59, 130, 246)',
+                        backgroundColor: 'rgba(59, 130, 246, 0.2)',
+                        tension: 0.1,
+                        fill: false,
+                        pointBackgroundColor: 'rgb(59, 130, 246)',
+                        pointBorderColor: '#fff',
+                        pointHoverBackgroundColor: '#fff',
+                        pointHoverBorderColor: 'rgb(59, 130, 246)'
+                    }
+                ];
+
+                if (historicalData.length >= 2) {
+                    const regression = linearRegression(historicalData);
+                    
+                    const lastHistoricalPoint = historicalData[historicalData.length - 1];
+                    const extrapolatedData = [lastHistoricalPoint];
+
+                    for (let i = 1; i <= 10; i++) {
+                        const futureDate = new Date(lastHistoricalPoint.x);
+                        futureDate.setFullYear(futureDate.getFullYear() + i);
+                        const yearsFromRef = (futureDate - regression.referenceDate) / (1000 * 60 * 60 * 24 * 365.25);
+                        let predictedEgfr = (regression.slope * yearsFromRef) + regression.intercept;
+                        
+                        if (predictedEgfr < 0) predictedEgfr = 0;
+                        extrapolatedData.push({ x: futureDate, y: predictedEgfr, type: 'extrapolated' });
+                    }
+                    
+                    datasets.push({
+                        label: translations[lang].extrapolatedDataLabel,
+                        data: extrapolatedData,
+                        borderColor: 'rgb(249, 115, 22)',
+                        borderDash: [5, 5],
+                        tension: 0.1,
+                        fill: false,
+                        pointRadius: 0
+                    });
+                }
+                
+                const plugins = [egfrZonesPlugin, egfrLinesPlugin];
+
+                canvas.chart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        datasets: datasets
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            x: {
+                                type: 'time',
+                                time: {
+                                    unit: 'year',
+                                    tooltipFormat: 'yyyy-MM-dd'
+                                },
+                                title: {
+                                    display: true,
+                                    text: translations[lang].chartXLabel,
+                                    font: { weight: 'bold' }
+                                }
+                            },
+                            y: {
+                                beginAtZero: true,
+                                max: 150,
+                                title: {
+                                    display: true,
+                                    text: translations[lang].egfrLabel,
+                                    font: { weight: 'bold' }
+                                },
+                                ticks: {
+                                    stepSize: 5
+                                }
+                            }
+                        },
+                        plugins: {
+                            legend: {
+                                display: history.length > 0,
+                                labels: {
+                                    boxWidth: 20
+                                }
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    title: (context) => {
+                                        return context[0].raw.type === 'historical' ? 
+                                               `${translations[lang].historicalDataLabel}` : 
+                                               `${translations[lang].extrapolatedDataLabel}`;
+                                    },
+                                    label: (context) => {
+                                        const egfrValue = context.raw.y.toFixed(2);
+                                        return `${translations[lang].tooltipEgfr} ${egfrValue}`;
+                                    }
+                                }
+                            }
+                        },
+                        interaction: {
+                            mode: 'index',
+                            intersect: false,
+                        },
+                    },
+                    plugins: plugins
+                });
+            }
+
+            function calculateEGFR() {
+                clearMessageBox();
+
+                const dob = dobInput.value;
+                const sex = sexSelect.value;
+                const race = raceSelect.value;
+                let creatinine = parseFloat(creatinineInput.value);
+                const calculationDate = calculationDateInput.value;
+                const lang = langSwitch.checked ? 'ru' : 'en';
+
+                if (!dob || !calculationDate || isNaN(creatinine) || creatinine <= 0) {
+                    updateMessageBox(translations[lang].errorMsg, 'error');
+                    return;
+                }
+
+                const age = calculateAge(dob, calculationDate);
+                if (age < 18) {
+                    updateMessageBox(translations[lang].ageTooLowMsg, 'error');
+                    return;
+                }
+
+                const originalCreatinine = creatinine;
+                if (currentUnit === 'µmol/L') {
+                    creatinine = creatinine / CONVERSION_FACTOR;
+                }
+
+                const egfr = calculateEGFRFromCreatinine(creatinine, age, sex, race);
+                
+                egfrValueSpan.textContent = egfr.toFixed(2);
+                resultsDiv.classList.remove('hidden');
+
+                history.push({ 
+                    date: calculationDate, 
+                    egfr: egfr,
+                    age: age.toFixed(0),
+                    creatinine: originalCreatinine,
+                    units: currentUnit,
+                });
+
+                saveToLocalStorage();
+                updateChart();
+                updateHistoryTable();
+                updateMessageBox('Расчет успешно добавлен в историю.', 'success');
+                creatinineInput.value = '';
+            }
+
+            function handleUnitSwitch() {
+                const isChecked = unitSwitch.checked;
+                const currentValue = parseFloat(creatinineInput.value);
+                const lang = langSwitch.checked ? 'ru' : 'en';
+                
+                if (isChecked) {
+                    currentUnit = 'µmol/L';
+                    creatinineLabel.textContent = translations[lang].creatinineLabel_umoll;
+                    if (!isNaN(currentValue)) {
+                        creatinineInput.value = (currentValue * CONVERSION_FACTOR).toFixed(2);
+                    }
+                } else {
+                    currentUnit = 'mg/dL';
+                    creatinineLabel.textContent = translations[lang].creatinineLabel_mgdl;
+                    if (!isNaN(currentValue)) {
+                        creatinineInput.value = (currentValue / CONVERSION_FACTOR).toFixed(2);
+                    }
+                }
+            }
+            
+            function saveToLocalStorage() {
+                const patientData = {
+                    dob: dobInput.value,
+                    sex: sexSelect.value,
+                    race: raceSelect.value,
+                    history: history
+                };
+                localStorage.setItem('creatinineCalculatorData', JSON.stringify(patientData));
+            }
+            
+            function loadFromLocalStorage() {
+                const storedData = localStorage.getItem('creatinineCalculatorData');
+                if (storedData) {
+                    try {
+                        const patientData = JSON.parse(storedData);
+                        dobInput.value = patientData.dob || '';
+                        sexSelect.value = patientData.sex || 'female';
+                        raceSelect.value = patientData.race || 'non-black';
+                        if (Array.isArray(patientData.history)) {
+                             history = patientData.history;
+                        } else {
+                            history = [];
+                        }
+                    } catch (e) {
+                        console.error('Failed to parse data from localStorage:', e);
+                        history = [];
+                    }
+                    
+                    updateHistoryTable();
+                    updateChart();
+                }
+            }
+
+            function exportData() {
+                const patientData = {
+                    dob: dobInput.value,
+                    sex: sexSelect.value,
+                    race: raceSelect.value,
+                    history: history.map(entry => ({
+                        date: entry.date,
+                        egfr: entry.egfr,
+                        creatinine: entry.creatinine,
+                        units: entry.units
+                    }))
+                };
+                const dataStr = JSON.stringify(patientData, null, 2);
+                const blob = new Blob([dataStr], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const now = new Date();
+                const year = now.getFullYear();
+                const month = String(now.getMonth() + 1).padStart(2, '0');
+                const day = String(now.getDate()).padStart(2, '0');
+                const hours = String(now.getHours()).padStart(2, '0');
+                const minutes = String(now.getMinutes()).padStart(2, '0');
+                const filename = `GFR-${day}-${month}-${year}-${hours}${minutes}.json`;
+                
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }
+
+            function importData(file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const lang = langSwitch.checked ? 'ru' : 'en';
+                    try {
+                        const importedData = JSON.parse(e.target.result);
+                        const hasRequiredProps = importedData.dob !== undefined && importedData.sex !== undefined && importedData.race !== undefined && Array.isArray(importedData.history);
+                        if (hasRequiredProps) {
+                            dobInput.value = importedData.dob;
+                            sexSelect.value = importedData.sex;
+                            raceSelect.value = importedData.race;
+                            history = importedData.history;
+                            saveToLocalStorage();
+                            loadFromLocalStorage();
+                            updateImportMessageBox(translations[lang].importSuccess, 'success');
+                        } else {
+                            updateImportMessageBox(translations[lang].importError, 'error');
+                        }
+                    } catch (error) {
+                        updateImportMessageBox(translations[lang].importError, 'error');
+                    }
+                };
+                reader.readAsText(file);
+            }
+
+            exportBtn.addEventListener('click', exportData);
+            importFile.addEventListener('change', (event) => {
+                fileToImport = event.target.files[0];
+                if (fileToImport) {
+                    importWarningModal.classList.remove('hidden');
+                }
+            });
+
+            confirmImportBtn.addEventListener('click', () => {
+                if (fileToImport) {
+                    importData(fileToImport);
+                    importWarningModal.classList.add('hidden');
+                    importFile.value = '';
+                    fileToImport = null;
+                }
+            });
+
+            cancelImportBtn.addEventListener('click', () => {
+                importWarningModal.classList.add('hidden');
+                importFile.value = '';
+                fileToImport = null;
+            });
+
+            dobInput.addEventListener('change', saveToLocalStorage);
+            sexSelect.addEventListener('change', saveToLocalStorage);
+            raceSelect.addEventListener('change', saveToLocalStorage);
+
+            updateLanguage('ru');
+            handleUnitSwitch();
+            showTab('calculator');
+            loadFromLocalStorage();
+
+            calculateBtn.addEventListener('click', calculateEGFR);
+            unitSwitch.addEventListener('change', handleUnitSwitch);
+            langSwitch.addEventListener('change', (e) => {
+                const lang = e.target.checked ? 'ru' : 'en';
+                updateLanguage(lang);
+                handleUnitSwitch();
+            });
+
+            calculatorTabBtn.addEventListener('click', () => showTab('calculator'));
+            historyTabBtn.addEventListener('click', () => showTab('history'));
+            settingsTabBtn.addEventListener('click', () => showTab('settings'));
+        });
+    </script>
+</body>
+</html>
