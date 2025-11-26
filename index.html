@@ -416,6 +416,32 @@
                     noHistoryData: 'No history data.',
                     importSuccess: 'Data imported successfully.',
                     importError: 'Error importing data: Invalid file format.',
+                    errorCreatinineMissing: 'Serum creatinine value is required',
+                    errorCreatinineNaN: 'Serum creatinine must be a valid number',
+                    errorCreatinineNegative: 'Serum creatinine must be greater than 0',
+                    errorCreatinineHigh: 'Serum creatinine > 30 mg/dL is extremely rare. Verify unit selection.',
+                    errorCreatinineLow: 'Serum creatinine < 0.3 mg/dL is unusual. Verify unit selection.',
+                    errorDOBMissing: 'Date of birth is required (set in Settings tab)',
+                    errorDOBInvalid: 'Date of birth is invalid',
+                    errorDOBFuture: 'Birth date cannot be in the future',
+                    errorDOBLogical: 'Birth date cannot be after calculation date',
+                    errorDateMissing: 'Calculation date is required',
+                    errorDateFuture: 'Calculation date cannot be in the future',
+                    errorSexInvalid: 'Invalid sex selection',
+                    errorRaceInvalid: 'Invalid race selection',
+                    warningCreatinineHighUnitMgdl: '⚠️ Creatinine > 30 mg/dL is extremely rare - verify unit selection',
+                    warningCreatinineLowUnitMgdl: '⚠️ Creatinine < 0.3 mg/dL is unusual - verify unit selection',
+                    warningCreatinineHighUnitUmol: '⚠️ Creatinine > 2600 µmol/L is extremely rare - verify unit selection',
+                    warningCreatinineLowUnitUmol: '⚠️ Creatinine < 26 µmol/L is unusual - verify unit selection',
+                    warningAgeHigh: 'Age exceeds typical range - formula reliability may be reduced',
+                    warningEgfrHigh: 'eGFR > 180 is unusually high - may indicate lab error',
+                    warningEgfrLow: 'Very low eGFR - verify creatinine measurement',
+                    successCalculation: '✅ Calculation successfully added to history',
+                    errorCalculation: 'Error during calculation',
+                    trendInsufficientData: 'Trend based on insufficient data',
+                    trendLowConfidence: 'Trend has low confidence (R² < 0.5)',
+                    trendModerateConfidence: 'Trend has moderate confidence (R² 0.5-0.75)',
+                    trendHighConfidence: 'Trend has high confidence (R² > 0.75)',
                 },
                 ru: {
                     h1Title: 'Калькулятор СКФ по формуле CKD-EPI',
@@ -472,10 +498,113 @@
                     noHistoryData: 'Нет данных в истории.',
                     importSuccess: 'Данные успешно импортированы.',
                     importError: 'Ошибка при импорте: Неверный формат файла.',
+                    errorCreatinineMissing: 'Значение креатинина сыворотки требуется',
+                    errorCreatinineNaN: 'Креатинин должен быть действительным числом',
+                    errorCreatinineNegative: 'Креатинин должен быть больше 0',
+                    errorCreatinineHigh: 'Креатинин > 30 мг/дл крайне редок. Проверьте единицы.',
+                    errorCreatinineLow: 'Креатинин < 0,3 мг/дл необычен. Проверьте единицы.',
+                    errorDOBMissing: 'Дата рождения требуется (установите на вкладке Настройки)',
+                    errorDOBInvalid: 'Дата рождения недействительна',
+                    errorDOBFuture: 'Дата рождения не может быть в будущем',
+                    errorDOBLogical: 'Дата рождения не может быть после даты расчета',
+                    errorDateMissing: 'Дата расчета требуется',
+                    errorDateFuture: 'Дата расчета не может быть в будущем',
+                    errorSexInvalid: 'Неверный выбор пола',
+                    errorRaceInvalid: 'Неверный выбор расы',
+                    warningCreatinineHighUnitMgdl: '⚠️ Креатинин > 30 мг/дл крайне редок - проверьте единицы',
+                    warningCreatinineLowUnitMgdl: '⚠️ Креатинин < 0,3 мг/дл необычен - проверьте единицы',
+                    warningCreatinineHighUnitUmol: '⚠️ Креатинин > 2600 мкмоль/л крайне редок - проверьте единицы',
+                    warningCreatinineLowUnitUmol: '⚠️ Креатинин < 26 мкмоль/л необычен - проверьте единицы',
+                    warningAgeHigh: 'Возраст превышает типичный диапазон - надежность формулы может быть снижена',
+                    warningEgfrHigh: 'СКФ > 180 необычно высокая - может указывать на ошибку лаборатории',
+                    warningEgfrLow: 'Очень низкая СКФ - проверьте результат анализа креатинина',
+                    successCalculation: '✅ Расчет успешно добавлен в историю',
+                    errorCalculation: 'Ошибка при расчете',
+                    trendInsufficientData: 'Тренд основан на недостаточных данных',
+                    trendLowConfidence: 'Тренд имеет низкую уверенность (R² < 0,5)',
+                    trendModerateConfidence: 'Тренд имеет среднюю уверенность (R² 0,5-0,75)',
+                    trendHighConfidence: 'Тренд имеет высокую уверенность (R² > 0,75)',
                 }
             };
 
             let history = [];
+            let language = 'en'; // Track current language globally
+
+            // Input validation function
+            function validateCalculatorInputs(creatinine_str, dobStr, dateStr, sex, race, isUmol = false) {
+                const errors = [];
+                const warnings = [];
+
+                // Validate creatinine
+                if (!creatinine_str || creatinine_str.trim() === '') {
+                    errors.push(translations[language].errorCreatinineMissing);
+                } else {
+                    const creatinine = parseFloat(creatinine_str);
+                    if (isNaN(creatinine)) {
+                        errors.push(translations[language].errorCreatinineNaN);
+                    } else if (creatinine <= 0) {
+                        errors.push(translations[language].errorCreatinineNegative);
+                    } else {
+                        // Unit-based warnings
+                        if (isUmol) {
+                            if (creatinine > 2600) {
+                                warnings.push(translations[language].warningCreatinineHighUnitUmol);
+                            } else if (creatinine < 26) {
+                                warnings.push(translations[language].warningCreatinineLowUnitUmol);
+                            }
+                        } else {
+                            if (creatinine > 30) {
+                                warnings.push(translations[language].warningCreatinineHighUnitMgdl);
+                            } else if (creatinine < 0.3) {
+                                warnings.push(translations[language].warningCreatinineLowUnitMgdl);
+                            }
+                        }
+                    }
+                }
+
+                // Validate DOB
+                if (!dobStr) {
+                    errors.push(translations[language].errorDOBMissing);
+                } else {
+                    const dob = new Date(dobStr);
+                    if (isNaN(dob.getTime())) {
+                        errors.push(translations[language].errorDOBInvalid);
+                    } else if (dob > new Date()) {
+                        errors.push(translations[language].errorDOBFuture);
+                    }
+                }
+
+                // Validate calculation date
+                if (!dateStr) {
+                    errors.push(translations[language].errorDateMissing);
+                } else {
+                    const date = new Date(dateStr);
+                    if (isNaN(date.getTime())) {
+                        errors.push(translations[language].errorDateMissing);
+                    } else if (date > new Date()) {
+                        errors.push(translations[language].errorDateFuture);
+                    }
+                }
+
+                // Check date logic only if both dates are valid
+                if (dobStr && dateStr) {
+                    const dob = new Date(dobStr);
+                    const date = new Date(dateStr);
+                    if (!isNaN(dob.getTime()) && !isNaN(date.getTime()) && dob > date) {
+                        errors.push(translations[language].errorDOBLogical);
+                    }
+                }
+
+                // Validate sex and race
+                if (sex !== 'M' && sex !== 'F') {
+                    errors.push(translations[language].errorSexInvalid);
+                }
+                if (race !== 'B' && race !== 'NB') {
+                    errors.push(translations[language].errorRaceInvalid);
+                }
+
+                return { isValid: errors.length === 0, errors, warnings };
+            }
 
             const today = new Date();
             const year = today.getFullYear();
@@ -495,6 +624,11 @@
             }
             
             function calculateEGFRFromCreatinine(creatinine_mgdl, age, sex, race) {
+                // Input boundary checks
+                if (creatinine_mgdl <= 0 || age <= 0) {
+                    return null; // Invalid input
+                }
+
                 let k, alpha, raceFactor;
 
                 if (sex === 'female') {
@@ -507,7 +641,10 @@
                 
                 raceFactor = race === 'black' ? 1.012 : 1;
 
-                return 142 * Math.pow(creatinine_mgdl / k, alpha) * Math.pow(0.9938, age) * raceFactor;
+                const egfr = 142 * Math.pow(creatinine_mgdl / k, alpha) * Math.pow(0.9938, age) * raceFactor;
+                
+                // Return null if result is invalid (NaN or Infinity)
+                return isFinite(egfr) && egfr > 0 ? egfr : null;
             }
 
             function updateMessageBox(message, type) {
@@ -543,6 +680,7 @@
             }
 
             function updateLanguage(lang) {
+                language = lang; // Update global language variable
                 const elements = document.querySelectorAll('[data-lang-key]');
                 elements.forEach(element => {
                     const key = element.getAttribute('data-lang-key');
@@ -650,31 +788,112 @@
                 });
             }
             
-            // Новая функция: Вычисление линейной регрессии
-            function linearRegression(data) {
-                if (data.length < 2) return { slope: 0, intercept: data.length > 0 ? data[0].y : 0, referenceDate: new Date() };
+            // Analyze eGFR trend with confidence metrics
+            function analyzeEGFRTrend(data) {
+                if (data.length < 2) {
+                    return { 
+                        slope: 0, 
+                        intercept: data.length > 0 ? data[0].y : 0, 
+                        referenceDate: new Date(),
+                        rSquared: 0,
+                        confidenceLevel: 'insufficient'
+                    };
+                }
                 
                 const n = data.length;
-                let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
+                let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0, sumY2 = 0;
                 
-                // Используем первую дату как точку отсчета для "x=0"
+                // Use first date as reference point (x=0)
                 const referenceDate = new Date(data[0].x);
+                const points = [];
 
                 for (let i = 0; i < n; i++) {
-                    // Переводим дату в количество лет с начала периода для оси X
+                    // Convert date to years from reference point
                     const x = (data[i].x - referenceDate) / (1000 * 60 * 60 * 24 * 365.25);
                     const y = data[i].y;
+                    points.push({x, y});
                     sumX += x;
                     sumY += y;
                     sumXY += x * y;
                     sumX2 += x * x;
+                    sumY2 += y * y;
                 }
                 
+                // Calculate regression
                 const denominator = (n * sumX2 - sumX * sumX);
                 const slope = denominator === 0 ? 0 : (n * sumXY - sumX * sumY) / denominator;
-                const intercept = (sumY / n) - (slope * sumX / n);
+                const meanY = sumY / n;
+                const intercept = meanY - (slope * sumX / n);
+
+                // Calculate R² for confidence
+                let ssRes = 0; // Sum of squares of residuals
+                let ssTot = 0; // Total sum of squares
+                for (let i = 0; i < n; i++) {
+                    const predicted = slope * points[i].x + intercept;
+                    ssRes += Math.pow(points[i].y - predicted, 2);
+                    ssTot += Math.pow(points[i].y - meanY, 2);
+                }
                 
-                return { slope, intercept, referenceDate };
+                const rSquared = ssTot === 0 ? 0 : 1 - (ssRes / ssTot);
+                
+                // Determine confidence level
+                let confidenceLevel = 'insufficient';
+                if (n >= 3) {
+                    if (rSquared > 0.75) {
+                        confidenceLevel = 'high';
+                    } else if (rSquared > 0.5) {
+                        confidenceLevel = 'moderate';
+                    } else {
+                        confidenceLevel = 'low';
+                    }
+                }
+                
+                return { slope, intercept, referenceDate, rSquared: rSquared.toFixed(3), confidenceLevel };
+            }
+
+            // Detect anomalous changes in data
+            function detectAnomalousChanges(data) {
+                if (data.length < 2) return [];
+
+                const anomalies = [];
+                const changes = [];
+
+                // Calculate changes between consecutive measurements
+                for (let i = 1; i < data.length; i++) {
+                    const daysDiff = (data[i].x - data[i-1].x) / (1000 * 60 * 60 * 24);
+                    if (daysDiff > 0) {
+                        const egfrChange = data[i].y - data[i-1].y;
+                        const changePerYear = (egfrChange / daysDiff) * 365.25;
+                        changes.push({ index: i, changePerYear, daysDiff });
+                    }
+                }
+
+                if (changes.length === 0) return [];
+
+                // Calculate mean and standard deviation
+                const meanChange = changes.reduce((sum, c) => sum + c.changePerYear, 0) / changes.length;
+                const variance = changes.reduce((sum, c) => sum + Math.pow(c.changePerYear - meanChange, 2), 0) / changes.length;
+                const stdDev = Math.sqrt(variance);
+
+                // Flag outliers (>2 standard deviations from mean)
+                for (const change of changes) {
+                    const zScore = Math.abs((change.changePerYear - meanChange) / (stdDev || 1));
+                    if (zScore > 2) {
+                        anomalies.push({
+                            index: change.index,
+                            changePerYear: change.changePerYear.toFixed(2),
+                            severity: zScore > 3 ? 'high' : 'moderate'
+                        });
+                    }
+                }
+
+                return anomalies;
+            }
+
+            // Old function kept for compatibility but enhanced
+            function linearRegression(data) {
+                const trend = analyzeEGFRTrend(data);
+                return { slope: trend.slope, intercept: trend.intercept, referenceDate: trend.referenceDate };
             }
 
             const egfrZonesPlugin = {
@@ -728,7 +947,6 @@
 
             function updateChart() {
                 const canvas = document.getElementById('egfrChart');
-                const lang = langSwitch.checked ? 'ru' : 'en';
 
                 const historicalData = history.filter(entry => entry.egfr !== null && entry.egfr !== undefined).map(entry => ({ 
                     x: new Date(entry.date), 
@@ -754,9 +972,15 @@
 
                 historicalData.sort((a, b) => a.x - b.x);
 
+                // Detect anomalies in data
+                const anomalies = detectAnomalousChanges(historicalData);
+                if (anomalies.length > 0) {
+                    console.warn('Anomalous changes detected:', anomalies);
+                }
+
                 const datasets = [
                     {
-                        label: translations[lang].historicalDataLabel,
+                        label: translations[language].historicalDataLabel,
                         data: historicalData,
                         borderColor: 'rgb(59, 130, 246)',
                         backgroundColor: 'rgba(59, 130, 246, 0.2)',
@@ -770,7 +994,22 @@
                 ];
 
                 if (historicalData.length >= 2) {
-                    const regression = linearRegression(historicalData);
+                    // Use enhanced trend analysis
+                    const trend = analyzeEGFRTrend(historicalData);
+                    
+                    // Display confidence level
+                    let confidenceMsg = '';
+                    if (trend.confidenceLevel === 'insufficient') {
+                        confidenceMsg = translations[language].trendInsufficientData;
+                    } else if (trend.confidenceLevel === 'low') {
+                        confidenceMsg = translations[language].trendLowConfidence;
+                    } else if (trend.confidenceLevel === 'moderate') {
+                        confidenceMsg = translations[language].trendModerateConfidence;
+                    } else if (trend.confidenceLevel === 'high') {
+                        confidenceMsg = translations[language].trendHighConfidence;
+                    }
+                    
+                    console.log('Trend analysis: R²=' + trend.rSquared + ' Confidence=' + trend.confidenceLevel);
                     
                     const lastHistoricalPoint = historicalData[historicalData.length - 1];
                     const extrapolatedData = [lastHistoricalPoint];
@@ -778,15 +1017,16 @@
                     for (let i = 1; i <= 10; i++) {
                         const futureDate = new Date(lastHistoricalPoint.x);
                         futureDate.setFullYear(futureDate.getFullYear() + i);
-                        const yearsFromRef = (futureDate - regression.referenceDate) / (1000 * 60 * 60 * 24 * 365.25);
-                        let predictedEgfr = (regression.slope * yearsFromRef) + regression.intercept;
+                        const yearsFromRef = (futureDate - trend.referenceDate) / (1000 * 60 * 60 * 24 * 365.25);
+                        let predictedEgfr = (trend.slope * yearsFromRef) + trend.intercept;
                         
+                        // Ensure predictions don't go negative
                         if (predictedEgfr < 0) predictedEgfr = 0;
                         extrapolatedData.push({ x: futureDate, y: predictedEgfr, type: 'extrapolated' });
                     }
                     
                     datasets.push({
-                        label: translations[lang].extrapolatedDataLabel,
+                        label: translations[language].extrapolatedDataLabel,
                         data: extrapolatedData,
                         borderColor: 'rgb(249, 115, 22)',
                         borderDash: [5, 5],
@@ -815,7 +1055,7 @@
                                 },
                                 title: {
                                     display: true,
-                                    text: translations[lang].chartXLabel,
+                                    text: translations[language].chartXLabel,
                                     font: { weight: 'bold' }
                                 }
                             },
@@ -824,7 +1064,7 @@
                                 max: 150,
                                 title: {
                                     display: true,
-                                    text: translations[lang].egfrLabel,
+                                    text: translations[language].chartYLabel,
                                     font: { weight: 'bold' }
                                 },
                                 ticks: {
@@ -865,47 +1105,78 @@
             function calculateEGFR() {
                 clearMessageBox();
 
-                const dob = dobInput.value;
-                const sex = sexSelect.value;
-                const race = raceSelect.value;
-                let creatinine = parseFloat(creatinineInput.value);
-                const calculationDate = calculationDateInput.value;
-                const lang = langSwitch.checked ? 'ru' : 'en';
+                try {
+                    const dob = dobInput.value;
+                    const sex = sexSelect.value;
+                    const race = raceSelect.value;
+                    const creatinineStr = creatinineInput.value;
+                    const calculationDate = calculationDateInput.value;
+                    const isUmol = currentUnit === 'µmol/L';
 
-                if (!dob || !calculationDate || isNaN(creatinine) || creatinine <= 0) {
-                    updateMessageBox(translations[lang].errorMsg, 'error');
-                    return;
+                    // Validate all inputs
+                    const validation = validateCalculatorInputs(creatinineStr, dob, calculationDate, sex, race, isUmol);
+                    
+                    if (!validation.isValid) {
+                        const errorMsg = validation.errors.join('\n');
+                        updateMessageBox(errorMsg, 'error');
+                        return;
+                    }
+
+                    // Show warnings if any
+                    if (validation.warnings.length > 0) {
+                        const warningMsg = validation.warnings.join('\n');
+                        updateMessageBox(warningMsg, 'warning');
+                    }
+
+                    const creatinine = parseFloat(creatinineStr);
+                    const age = calculateAge(dob, calculationDate);
+
+                    if (age < 18) {
+                        updateMessageBox(translations[language].ageTooLowMsg, 'error');
+                        return;
+                    }
+
+                    if (age > 120) {
+                        updateMessageBox(translations[language].warningAgeHigh, 'warning');
+                    }
+
+                    const originalCreatinine = creatinine;
+                    const creatinineMgdl = isUmol ? creatinine / CONVERSION_FACTOR : creatinine;
+
+                    const egfr = calculateEGFRFromCreatinine(creatinineMgdl, age, sex, race);
+                    
+                    if (egfr === null) {
+                        updateMessageBox(translations[language].errorCalculation, 'error');
+                        return;
+                    }
+
+                    // Check for unusual eGFR values
+                    if (egfr > 180) {
+                        updateMessageBox(translations[language].warningEgfrHigh, 'warning');
+                    } else if (egfr < 15) {
+                        updateMessageBox(translations[language].warningEgfrLow, 'warning');
+                    }
+
+                    egfrValueSpan.textContent = egfr.toFixed(2);
+                    resultsDiv.classList.remove('hidden');
+
+                    history.push({ 
+                        date: calculationDate, 
+                        egfr: egfr,
+                        age: age.toFixed(0),
+                        creatinine: originalCreatinine,
+                        units: currentUnit,
+                    });
+
+                    saveToLocalStorage();
+                    updateChart();
+                    updateHistoryTable();
+                    updateMessageBox(translations[language].successCalculation, 'success');
+                    creatinineInput.value = '';
+                } catch (error) {
+                    console.error('Calculation error:', error);
+                    updateMessageBox(translations[language].errorCalculation, 'error');
                 }
-
-                const age = calculateAge(dob, calculationDate);
-                if (age < 18) {
-                    updateMessageBox(translations[lang].ageTooLowMsg, 'error');
-                    return;
-                }
-
-                const originalCreatinine = creatinine;
-                if (currentUnit === 'µmol/L') {
-                    creatinine = creatinine / CONVERSION_FACTOR;
-                }
-
-                const egfr = calculateEGFRFromCreatinine(creatinine, age, sex, race);
-                
-                egfrValueSpan.textContent = egfr.toFixed(2);
-                resultsDiv.classList.remove('hidden');
-
-                history.push({ 
-                    date: calculationDate, 
-                    egfr: egfr,
-                    age: age.toFixed(0),
-                    creatinine: originalCreatinine,
-                    units: currentUnit,
-                });
-
-                saveToLocalStorage();
-                updateChart();
-                updateHistoryTable();
-                updateMessageBox('Расчет успешно добавлен в историю.', 'success');
-                creatinineInput.value = '';
             }
 
             function handleUnitSwitch() {
